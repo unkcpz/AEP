@@ -43,7 +43,18 @@ Two parts use this `add_task_subscriber` interface.
 The reason why we should not rely on 3rd-part message broker is not only that the extra service is hard to deploy, but also we use it in an inproper way.
 I will show more detail in the legacy architecture description below.
 RabbitMQ as a message broker is design for large distribute system runs for microservices and usually involve with a lot of machines. 
+The way AiiDA using RabbitMQ as communicator is unilateral from actioner to workers, where the workers can only talk back to the aiida kernel through ack. 
+It requires more communication in direction from workers to AiiDA kernel, such as worker's load information and tasks health information.
+With new system, I want to bring in the bileteral communication between the `actioner` and `worker` (the terminologies are defined in the following sections).
 In AiiDA case, the common scenario is that there are not too many clients (workers/actioners) talk to server (coordinator), thus it requires a very neat implementation that can add more bussiness logic around but still kept lightweight. 
+
+### Long-stand issues targeted
+
+Couple of issues that we are not able to solve because of the limitation of using RMQ, the tool proposed is targeting on them:
+
+- [#88: Limit number of jobs in TOSUBMIT state](https://github.com/aiidateam/aiida-core/issues/88)
+- [#1397: Deadlock when creating many processes](https://github.com/aiidateam/aiida-core/issues/1397)
+- [in wiki: RabbitMQ version to use with AiiDA (<=3.8.14)](https://github.com/aiidateam/aiida-core/wiki/RabbitMQ-version-to-use)
 
 #### Legacy architecture
 
@@ -287,6 +298,11 @@ pub enum IMessage {
 There is a typical case that one bundled operation relys on both.
 When dispatch a task to worker by two table lookup, an internal message `IMessage::TaskLaunch(Uuid)` first fired from a dispatch which runs concurrently.
 The message is relayed to worker client by parsing the message and convert it to an external message with type `ExMessage::TaskLaunch(Uuid)`, which send to the correspond worker.
+
+(Needs polish) For `TaskLaunch`, in experimenting with a mocked task pool, I found that it required to passing message with both task id in the coordinator's table and the record it in the DB so the worker knows which task's real entity to recorver from.
+If multiple task pools are going to be supported in the future, the task pool also needs to be registered and has a identity to reach the agreement between actioner and workers.
+For the first implementation, only `record_id` is passing with the `task_id` of the table.
+The record_id is the id of the corresponded DB index for finding the node to recorver task from.
 
 (This paragragh need to be changed. It makes little sense to distinguish message based on transition type. Makes more sense to just to have regular message type and the type when it can not be serialized. The codec is independent of message difinition.)
 
