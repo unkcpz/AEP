@@ -129,6 +129,21 @@ However, it is not trivial to implement all the communication needed from handsh
 The `kiwipy` in AiiDA servers as the role to provide the wrappered methods to talk between different components over RabbitMQ.
 Therefore, `kiwipy` is the interface for actioner and worker on bundle the operations to talk to RMQ, as the replacement, in `tatzelwurm` I should provide the python interface with methods ready to be used for sending and consuming certain type of MessagePack meesage.
 
+## Other solution or exist tools?
+
+It is discussed in https://github.com/aiidateam/AEP/pull/30#discussion_r813895745, better to look for tools that ready to use.
+What mentioned are [Apache Kafka](https://kafka.apache.org/), [faust-streaming](https://github.com/faust-streaming), [MQTT](https://mqtt.org/) and [Celery](https://docs.celeryq.dev/en/stable/getting-started/introduction.html).
+
+- Apach Kafka: for event streaming, require service to start. (servirce required)
+- MQTT: is a messaging protocol in low bandwidth environments. (no queue system + overkill for low bandwidth)
+- faust-streaming: require Kafka as event streaming backend. (Kafka services required, it is like kiwipy but for Kafka)
+- Celery: this is a task queue. (For event streaming it requires a message broker, RMQ, Redis, SQS .., For persistent, it requires a results store.)
+
+The `tatzelwurm` is tailored for AiiDA use cases specifically with message streaming/broke, lightwight queue system and persistent with KV store in disk in design.
+It is lightweight but will meet all the requirements for AiiDA.
+The tools above are for machines to machines scenario which required for huge message passing around millios of microservices and that is why those are overkill.
+We are not targeting to that but for AiiDA with required architecture as described above. 
+
 ## Design details
 
 In this section, I futher extend on the details of the new architecture.
@@ -509,8 +524,8 @@ Instead of go into details of comparing the Rust v.s. Python in async programmin
 I summarize following strong reasons drive me to make such decision:
 
 - Performance wise, Python has GIL and therefore not able to provide real CPU parallelism. The bottleneck of AiiDA at the moment is from DB access, but it is not the excuse to compromise on performance for design.
-- Developers efficiency wise, I tried python from start, but I spend more time on figuring out how to frame stream to MassagePack in python even though I am more familiar with python. In python the mpsc and oneshot patterns which comes with tokio as commonly used patterns, has to implemented by hand with asyncio prime tools.
-- Use friendly wise, we want the future AiiDA is a `verdi` binary can download and run, without set up python environment. It is achievable with Rust.
+- Developers efficiency wise, I tried python from start, but I spend more time on figuring out how to frame stream to MassagePack in python even though I am more familiar with python. In python the mpsc and oneshot patterns which comes with tokio as commonly used patterns, but has to implemented by hand with asyncio prime tools.
+- User friendliness wise, we want the future AiiDA is a `verdi` binary can download and run, without set up python environment. It is achievable with Rust.
 - If the project done with python, if not me, there will be other people want to rewrite it in other language. If it writen in Rust, the only possibility within 10 years is rewriting it again in Rust.
 - With using Rust, [I believe I am able to finish this projet, not just start it](https://www.youtube.com/watch?v=Z3xPIYHKSoI).
 
