@@ -254,9 +254,11 @@ pub enum XMessage {
     // dummy type for fallback general unknown type messages
     BulkMessage(String),
 
-    // The Uuid is the task uuid
-    // coordinator -> worker
-    TaskLaunch(Uuid), 
+    // The Uuid is the task uuid, record_id is for task pool
+    TaskLaunch {
+        task_id: Uuid,
+        record_id: String,
+    },
 
     // hand shake message when the msg content is a string
     // <-> between server and clients
