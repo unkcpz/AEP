@@ -56,7 +56,7 @@ Couple of issues that we are not able to solve because of the limitation of usin
 - [#1397: Deadlock when creating many processes](https://github.com/aiidateam/aiida-core/issues/1397)
 - [in wiki: RabbitMQ version to use with AiiDA (<=3.8.14)](https://github.com/aiidateam/aiida-core/wiki/RabbitMQ-version-to-use)
 
-#### Legacy architecture
+### Legacy architecture
 
 It is worth to have a look at the legacy architecture when using RabbitMQ + kiwipy as message broker system for task control.
 The figure shows the liftspan of a task from being generated to it is running on a worker. 
@@ -96,7 +96,7 @@ From the architecture figure, it is interesting to see that the direct interacti
 This makes the cancellation handling of tasks hard to reasoning, which need to be handled in the case when the heartbeat is missing.
 You'll find that in the new design, I try to give/ask worker for more responsibility to handle the cancellaition and notification back to the actioner. 
 
-## New architecture
+### New architecture
 
 The new design is sketched in the figure below, where I replace "communicator" to "coordinator" by giving more explicit role.
 
@@ -129,7 +129,7 @@ However, it is not trivial to implement all the communication needed from handsh
 The `kiwipy` in AiiDA servers as the role to provide the wrappered methods to talk between different components over RabbitMQ.
 Therefore, `kiwipy` is the interface for actioner and worker on bundle the operations to talk to RMQ, as the replacement, in `tatzelwurm` I should provide the python interface with methods ready to be used for sending and consuming certain type of MessagePack meesage.
 
-### Design details
+## Design details
 
 In this section, I futher extend on the details of the new architecture.
 
@@ -144,7 +144,7 @@ Not all but quite a bit are inspired by:
 - https://github.com/chrisjsewell/aiida-process-coordinator/issues/7#issuecomment-943361982
 - The initial [AEP PR#30: Remove the dependence on RabbitMQ](https://github.com/aiidateam/AEP/pull/30)
 
-#### The components
+### The components
 
 1. Task coordinator
 
@@ -187,7 +187,7 @@ In the context of AiiDA, it is us the regular user who is willing to launch, pau
 I call it actioner. 
 The actioner will send the bundle of operations through a defined message that follow certain protocol to the coordinator. Coordinator then send or broadcast the message to workers and take actions to manipulate the tasks.
 
-#### Two tables
+### Two tables
 
 The coordinator should grab two tables to operate on its tasks.
 The two tables are workers table which record the workers state information and the tasks table which record the states of tasks.
@@ -219,7 +219,7 @@ For performance, the tables are in memory.
 But meanwhile we want tasks state are reboot proof which require the task table has a backup can in disk that can be used to recover the table to memory.
 For store such a persistent storage, see the section [persistent queue state to disk](#persistent-queue-state-to-disk) for more discussion.
 
-#### Task states transition
+### Task states transition
 
 The task has its states and the state will be changed upon signal send and receive between actioner/worker/assigner.
 The task in `tatzelwurm` has its own states transition logic and may different from states definition from its real entity in task pool (e.g. in AiiDA).
@@ -232,7 +232,7 @@ In `tatzelwurm` the state is for managing the state transition by the operation 
 - `Run`: (`Submit` -> x) the worker is working on it. (TBD, submit and run seems redundant. Meanwhile the assign task is a tight loop which may not quick response to running ack message from worker. But the sepration of states leave a implementation port for future features support.)
 - `Terminated(exit_code)` (`Run` -> x) the worker finish on it and send the signal back. The exit_code 0 for complete, -1 for killed and other positive number for except with certain exit code.
 
-#### Message types
+### Message types
 
 (TBD)
 In the whole design, the message is used to communicate between different entities. 
@@ -308,7 +308,7 @@ The record_id is the id of the corresponded DB index for finding the node to rec
 
 (This paragragh need to be changed. It makes little sense to distinguish message based on transition type. Makes more sense to just to have regular message type and the type when it can not be serialized. The codec is independent of message difinition.)
 
-#### Proactive task assignment
+### Proactive task assignment
 
 The major different between the legacy design and the new design will be the way how tasks are assigned.
 
@@ -329,12 +329,12 @@ To ensure the good rate of throughput and avoid leaving workers to unnessesary i
 
 It requires to benchmark the performance of booking check on a very big table and decide which should be the proper default interval for booking check.
 
-#### Task priorities and task types
+### Task priorities and task types
 
 The goals of this design are:
 
 - By making the "driverabl" tasks (e.g. inner child workflow or unit task) complete first, the workers are not blocked by the slots limit as legacy RMQ design. 
-- It can have a max number of tasks for certain tag and the tag counting can then be used to limit the resources usage, see the section [_Info to task to limit the maximum number to run on remote](#info-to-task-to-limit-the-maximum-number-to-run-on-remote_) for details. 
+- It can have a max number of tasks for certain tag and the tag counting can then be used to limit the resources usage, see the section [_Info to task to limit the maximum number to run on remote](#info-to-task-to-limit-the-maximum-number-to-run-on-remote) for details. 
 - The workchain start running again once the child process the workchain is waiting for reached the terminated state (Seb's CIF cleaning).
 - In a regular load (?definition required after implementation and bench) only one worker required for the non-blocking processes, and number of worker controller is for blocking running workers.
 
@@ -352,7 +352,7 @@ There are chances that the blocking process will starving the workers but it req
 Based on the topic, it can have dedicated worker that only to consuming 'baseproc-a' topic for running `ProcessFunction`.
 While for the `CalcJob` and `WorkChain` they can all push to be run in the same async runtime.
 
-#### Persistent queue state to disk
+### Persistent queue state to disk
 
 The processes state record booking or a.k.a task queue should be able to persistently stored in the disk between the restart session.
 In order to maximize the performance for high-throughput, the running task booking is in memory. 
@@ -366,7 +366,7 @@ The disadvantage of this design is the size AOF can grown fast in the high-throu
 In the scale of monthes running, the AOF can be extremely large and it is then expensive to rerun events to recover the booking).
 The enhancement can be the BDB is dumped to the disk from memory periodicly and remove the events happened until the dump period so the AOF only contain the events for recovering from dumped BDB.
 
-#### When and what to communicate between coordinator and workers
+### When and what to communicate between coordinator and workers
 
 The [comment](https://github.com/aiidateam/AEP/pull/30#discussion_r766481043) enphasize that run a task zero or one time makes more sense for AiiDA since resounces consumed by AiiDA is always a concern in terms of running heavy calculation on the remote.
 In order to make task completion information more verbose so the coordinator can make good decision on whether send the task to other workers, the worker need to communicate two times back to coordinator, one when the worker get the task assigned, it reply back it will running on it, then when the task is complete it need to send back again to say the task is real done.
@@ -394,7 +394,7 @@ As corresponding, the coordinator needs to:
 (TBD) whether coordinator needs to keep heartbeat and notify workers that it is alive to update the booking?
 In essence, when worker realize coordinator is dead, it need to do be shutdown gracefully.
 
-#### Data frame and serialization
+### Data frame and serialization
 
 - **Decision**: framed data (if rust, using `codec`, if python using `asyncio` stream). 
 - **Decision**: de/serialize message, using `MessagePack` for extensibility and simplicity.
@@ -406,7 +406,7 @@ The MessagePack is like JSON but a binary message which can be more efficient in
 If in future we find the message between clients and coordinator is always simple, we can change to using self designed protocol such as redis-like protocol (after the prototyping, I realized there are different type of messages and therefore let's just use msgpack.).
 If we find in the future we need more big chunk of data to communicate, the MessagePack can fit for storing more complicate format.
 
-#### How to deal with missions when worker is "dead"
+### How to deal with missions when worker is "dead"
 
 Related isuses: https://github.com/aiidateam/aiida-core/issues/5278
 
@@ -429,7 +429,7 @@ The lease idea is for every task when it is in running state, the lease will onl
 When the lease is expired, the task can be taken by other worker. 
 It requires more test and benchmark to see if this approach robust enough for our use case.
 
-#### Is rpc (and broadcast) really needed?
+### Is rpc (and broadcast) really needed?
 
 - **Decision**: don't use rpc but asynchronous pipeline and let the worker manage tasks.
 
@@ -462,7 +462,7 @@ The control flow goes from coordinator to deepest process and back to runner to 
 In the new design, the kill signal send to runner, and the runner then manage the close of the process. 
 The control flow goes from coordinator -> runner -> process which is easy to reasoning and every two parts can be isolated to debug.
 
-#### One glimpse multiple tasks assignment
+### One glimpse multiple tasks assignment
 
 When dispatch tasks to workers, there are two ways of updating worker table.
 First is after every task assignment, I check the worker table again to get the latest one and to assign task using the new table.
@@ -473,14 +473,14 @@ The worker table can also changed if there are short running tasks that finish d
 The decision was made mostly for less table lookup and to make the assignment more easy to predict.
 For debug purpose, it is easy to just print out two tables and see if the assignment works as expected.
 
-#### Info to task to limit the maximum number to run on remote
+### Info to task to limit the maximum number to run on remote
 
 A very [old issue](https://github.com/aiidateam/aiida-core/issues/88) was not able to be solved because the lack of process assignment strategy.
 At the moment, there is no way to count the number of tasks are running on the remote resources. 
 When assigning the remote run task (`CalcJob` in AiiDA context) to worker, it requires to add a check on the limit amout of jobs are able to run on the remote.
 If such type of tasks exceed the limit, no more task that bind to certain remote (marked by some tag, let's say scheduler distinguished) should be assigned to the worker until some tasks are completed later.
 
-#### Gracefully kill a task shutdown runner
+### Gracefully kill a task shutdown runner
 
 - [Issue #2985 not gracefully killed](https://github.com/aiidateam/aiida-core/issues/2985)
 - [Issue when only CMD interpreter runner closed](https://github.com/aiidateam/aiida-core/issues/2711)
@@ -514,12 +514,12 @@ I summarize following strong reasons drive me to make such decision:
 - If the project done with python, if not me, there will be other people want to rewrite it in other language. If it writen in Rust, the only possibility within 10 years is rewriting it again in Rust.
 - With using Rust, [I believe I am able to finish this projet, not just start it](https://www.youtube.com/watch?v=Z3xPIYHKSoI).
 
-### Experiments required before start
+## Experiments required before start
 
 These are collection and short summary of awswers from ChatGPT 4o, which give the hints for tools and technique stacks where I should look and clear the path before start.
 I don't fully trust so the experimentals required.
 
-#### Can I run a python coroutine in the thread that spawned in the rust side?
+### Can I run a python coroutine in the thread that spawned in the rust side?
 
 ChatGPT points that:
 
@@ -531,7 +531,7 @@ Comments:
 - The key point to check is make sure not new thread is created for each coroutine but the thread/event_loop has the lifetime of worker (this is the new design after move from `tornado` to `asyncio` which can only support one event loop, so probably with handle thread by rust every process can again run on their own event loop??). 
 - It may also be possible (better) to turn the python coroutine into a rust future and then using tokio runtime to poll the future to complete. This require the crate `pyo3_asyncio` as bridge to pass python's coroutine to rust tokio runtime. 
 
-#### The interface for worker and actioner
+### The interface for worker and actioner
 
 (more details require discussion)
 
@@ -541,7 +541,7 @@ Comments:
 - The interface is the kiwipy as for the RMQ. 
 - In the repo, the interface is put as separate crates and provide with python as must have, and probably with julia and lua in plan.
 
-#### Running the server by ..?
+### Running the server by ..?
 
 The Rust application after compiled will be a binary.
 There may be two ways to run it from AiiDA:
@@ -549,7 +549,7 @@ There may be two ways to run it from AiiDA:
 - Get the binary with install the pyo3 wrapper lib and put the binary of corresponding OS architecture to the python bin path. In AiiDA maybe keep on using circus to mornitoring the start services.
 - Expose the API and have a python coordinator "main" as `main.rs` which is less than 100 lines. Not sure about the performance since python has GIL!!
 
-### TBD
+## TBD
 
 - Q: Is it better to store checkpoint in a seperate (in legacy it is with process node) table or even in a separate resource? 
     - A (@unkcpz): The checkpoint contains two types of information, which are the information to recover the task and the information of task running state. The info to recover the task from task pool should be in the task pool. But the information about running state should be in the other entity with more fast access. These two information are well decoupled.
@@ -559,7 +559,7 @@ There may be two ways to run it from AiiDA:
     - A (@unkcpz): It should still be the actioner, the architecture overview explain it well.
     - One of the goal is to make the use of the task broker language agnostic and fit for the workflow of orchestrated in different programming languages.
 
-### Performance tips
+## Performance tips
 
 If the performance become bottleneck and after the benchmark it shows the the bottleneck is not from architecture and implementation.
 There are some underlined crates and tools to use as the alternative for message passing or DB management.
