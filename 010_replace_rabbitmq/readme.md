@@ -177,6 +177,9 @@ Here are requirements for the coordinator:
 - The task coordinator implement persistent task queuing so that tasks can be recovered after a machine reboot. The go to solution I can see is using an embeded DB like `RocksDB` or use `Redis` with its RDB+AOL. 
 - For task queue persistence (continue of the point above): the embedeb DB only allowed one connection and this connection is from the coordinator (therefore, only the coordinator is directly communicate to the embedeb DB). Tt communicates with the worker and when worker responds, coordinater should updates tasks (e.g. `pending`, `in_progress`, `completed`) into the serialized task data. (More details are discussed in later sections.) 
 
+The lifetime of coordinator service is bind to the workers.
+If the AiiDA use case, the coordinator should start when the first worker being started and dropped when all the workers are dropped.
+
 2. Worker
 
 The worker is responsible for running python functions (or more generic if the I can provide message interface by having core part in low-level language. I believe it is then not hard to build on top the wrapper to different languages, such as Julia and Lua).
