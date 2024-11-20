@@ -131,8 +131,12 @@ Therefore, `kiwipy` is the interface for actioner and worker on bundle the opera
 
 ## Other solution or exist tools?
 
-It is discussed in https://github.com/aiidateam/AEP/pull/30#discussion_r813895745, better to look for tools that ready to use.
-What mentioned are [Apache Kafka](https://kafka.apache.org/), [faust-streaming](https://github.com/faust-streaming), [MQTT](https://mqtt.org/) and [Celery](https://docs.celeryq.dev/en/stable/getting-started/introduction.html).
+First, it is worth to mention the major two goals of having a standalone tool are:
+- Not rely on an extra service to start before running AiiDA.
+- Tasks (AiiDA processes) can be assigned properly to workers, which indicates a requirement for small scheduler system for AiiDA.
+
+It was discussed in https://github.com/aiidateam/AEP/pull/30#discussion_r813895745, better to look for tools that ready to use.
+What were mentioned are [Apache Kafka](https://kafka.apache.org/), [faust-streaming](https://github.com/faust-streaming), [MQTT](https://mqtt.org/) and [Celery](https://docs.celeryq.dev/en/stable/getting-started/introduction.html).
 
 - Apach Kafka: for event streaming, require service to start. (servirce required)
 - MQTT: is a messaging protocol in low bandwidth environments. (no queue system + overkill for low bandwidth)
@@ -509,7 +513,7 @@ When task is killed, it requires to
 1. Change the DB record for the task (by aiida-core).
 1. When all cancelling finished, close the event loop and mark the process as killed in the table.
 
-#### Advantages of Rust Over Python in asynchronous programming
+### Advantages of Rust Over Python in asynchronous programming
 
 If you read to here, I think we can start a serious conversation.
 
